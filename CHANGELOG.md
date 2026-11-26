@@ -3,6 +3,21 @@
 All notable changes to this package are documented in this file. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `secure_allow_insecure(allow)`: lets the web and the desktop's webview builds keep values in
+  `localStorage`, in the clear. Off by default.
+
+### Changed
+
+- Security: where there is no secure store (`secure_is_secure()` false: the web, webview
+  builds), `secure_set` refuses and `secure_get` returns null unless the app called
+  `secure_allow_insecure(true)`. Before, values went to `localStorage` in the clear without
+  asking. `secure_remove` still clears them. The README says how to migrate.
+- The README says the package is in Preview and how it is tested.
+
 ## [0.1.4] - 2026-11-21
 
 ### Added

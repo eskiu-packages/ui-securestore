@@ -11,7 +11,7 @@ void Demo() {
     string token = secure_get("session");
     Column(Style{grow: 1, padding: 24, gap: 16, justify: JustifyCenter, background: kit.page}) {
         Card() {
-            Secondary(secure_is_secure() ? "Kept encrypted by the platform" : "Kept in the clear (no secure store here)");
+            Secondary(secure_is_secure() ? "Kept encrypted by the platform" : "No secure store here: nothing is kept");
             TextWith(Style{font_size: 20, font_weight: 700, color: kit.ink}, token == null ? "No session" : token);
             Button("Sign in") {
                 secure_set("session", "token-4f2a9c");

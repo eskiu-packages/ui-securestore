@@ -23,6 +23,12 @@ secure_remove("session");
 | `secure_set(key, value)` | keeps `value` under `key`, replacing what was there; false when the platform refused |
 | `secure_remove(key)` | forgets `key` |
 | `secure_is_secure()` | whether values are kept encrypted by the platform (false on the web, in webview builds, and on Linux without a Secret Service) |
+| `secure_allow_insecure(allow)` | lets the web and webview builds keep values in `localStorage`, in the clear; off by default |
+
+Where `secure_is_secure()` is false, `secure_set` returns false and `secure_get` returns null:
+nothing is kept, so a secret is never written in the clear behind the app's back. Check
+`secure_is_secure()` and offer another way (sign in again each session, keep the token in
+memory). An app that accepts the clear for a value calls `secure_allow_insecure(true)` first.
 
 | Platform | Keeps values in | `secure_is_secure()` |
 |---|---|---|
@@ -31,7 +37,7 @@ secure_remove("session");
 | macOS | the Keychain, as generic passwords under the app's bundle id, never synchronized; see below | true |
 | Linux | the Secret Service (GNOME Keyring, KWallet) through libsecret, an item per key with the app's id; see below | true with a Secret Service, else false |
 | Windows | the registry under `HKEY_CURRENT_USER\Software\Eskiu\SecureStore\<program>`, each value encrypted with DPAPI for the current Windows user | true |
-| Web, and the desktop's `--webview` builds | `localStorage`, in the clear: this is not secure storage | false |
+| Web, and the desktop's `--webview` builds | nothing: `secure_set` refuses; after `secure_allow_insecure(true)`, `localStorage`, in the clear | false |
 
 On macOS an app signed with a keychain access group (an Apple team's signature) uses the data
 protection keychain, this device only, as on iOS. The ui tool signs ad hoc, and such an app
@@ -50,9 +56,22 @@ another machine, cannot decrypt them. The registry key is named after the progra
 
 On the web there is no secure store to use. The API is synchronous while WebCrypto is not, and
 even a non-extractable WebCrypto key kept in IndexedDB decrypts for any script that runs in the
-page, which is the same script that can read `localStorage`. So the web keeps values in
-`localStorage` as they are and says so: check `secure_is_secure()` before keeping something you
-would not want read from the browser's profile.
+page, which is the same script that can read `localStorage`. So the web keeps nothing unless the
+app opts in with `secure_allow_insecure(true)`; then values go to `localStorage` (under
+`eskiu-secure:<key>`) as they are, readable by any script in the page and from the browser's
+profile. `secure_remove` works either way, so an app can clear what an older version kept.
+
+### Migrating from 0.1.4
+
+Up to 0.1.4 the web and the webview builds kept values in `localStorage` without asking. Now
+`secure_set` returns false and `secure_get` returns null there until the app calls
+`secure_allow_insecure(true)`. An app that relied on it either calls that once at start (and
+accepts the clear), or treats the web as a platform without a store: values an older version
+kept stay in `localStorage` until `secure_remove` takes them away.
+
+The package is in Preview, as ui's device packages are (ui's `docs/stability.md`): `eskiuc
+test` runs it against a stand-in for the platform, and the desktops' native side is checked
+against the real store by `tools/native_smoke.c`.
 
 It is for tokens and keys, not for data: a value is read whole on each call.
 
