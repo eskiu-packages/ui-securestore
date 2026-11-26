@@ -2,9 +2,11 @@
 // eskiu-packages/ui: a session token, a refresh token, a key. The Keychain on iOS and macOS,
 // values encrypted with an AES-GCM key held by the Android Keystore on Android, the Secret
 // Service (GNOME Keyring, KWallet) through libsecret on Linux, and DPAPI on Windows. The web,
-// and the desktop's webview builds, have no such store: there a value goes to localStorage, in
-// the clear, and secure_is_secure is false. On Linux without libsecret or a running Secret
-// Service, set and get fail and secure_is_secure is false; nothing is written in the clear.
+// and the desktop's webview builds, have no such store: there secure_is_secure is false and
+// secure_set refuses (returns false) and secure_get returns null, unless the app opted in with
+// secure_allow_insecure(true), which keeps values in localStorage, in the clear. On Linux
+// without libsecret or a running Secret Service, set and get fail and secure_is_secure is
+// false; nothing is written in the clear there, opted in or not.
 //
 //     secure_set("session", token);
 //     string saved = secure_get("session");    // null when there is none; free it
@@ -20,19 +22,39 @@ extern int secure_native_set(string key, string value);
 extern int secure_native_remove(string key);
 extern int secure_native_is_secure();
 
-// The value kept under `key`, a copy the caller frees, or null when there is none.
-string secure_get(string key) { return key == null ? null : secure_native_get(key); }
+// Whether the app accepted keeping values in the clear where there is no secure store.
+bool _secure_insecure_ok;
 
-// Keeps `value` under `key`, replacing what was there; false when the platform refused.
+// Lets the web, and the desktop's webview builds, keep values in localStorage, in the clear,
+// readable by any script in the page and from the browser's profile. Off by default: without
+// it secure_set refuses and secure_get returns null where secure_is_secure is false. Call it
+// only for values you would not mind being read there. It changes nothing where the platform
+// has a secure store, and Linux without a Secret Service still keeps nothing.
+void secure_allow_insecure(bool allow) { _secure_insecure_ok = allow; }
+
+// Whether this platform may be used: it keeps values encrypted, or the app opted in to the
+// clear with secure_allow_insecure.
+bool _secure_usable() { return _secure_insecure_ok || secure_native_is_secure() != 0; }
+
+// The value kept under `key`, a copy the caller frees, or null when there is none, or when the
+// platform has no secure store and the app did not call secure_allow_insecure(true).
+string secure_get(string key) { return key == null || !_secure_usable() ? null : secure_native_get(key); }
+
+// Keeps `value` under `key`, replacing what was there; false when the platform refused, or
+// when it has no secure store (the web, the desktop's webview builds, Linux without a Secret
+// Service) and the app did not call secure_allow_insecure(true).
 bool secure_set(string key, string value) {
-    if (key == null) { return false; }
+    if (key == null || !_secure_usable()) { return false; }
     return secure_native_set(key, value == null ? "" : value) != 0;
 }
 
-// Forgets `key`; true when nothing is kept under it afterwards.
+// Forgets `key`; true when nothing is kept under it afterwards. It works without a secure
+// store too, so an app can remove what an earlier version kept in the clear.
 bool secure_remove(string key) { return key != null && secure_native_remove(key) != 0; }
 
 // Whether values are kept encrypted by the platform: true on iOS, Android, macOS, Windows,
-// and Linux with a Secret Service; false on the web and in webview builds (localStorage, in
-// the clear) and on Linux without one (set and get fail there).
+// and Linux with a Secret Service; false on the web and in webview builds and on Linux
+// without one. Where it is false, secure_set refuses and secure_get returns null, unless the
+// app called secure_allow_insecure(true) (then the web keeps values in localStorage, in the
+// clear).
 bool secure_is_secure() { return secure_native_is_secure() != 0; }

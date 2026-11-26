@@ -1,5 +1,6 @@
 // <securestore> with no device: the platform's side is an in-memory stand-in, so the test
-// checks the wrapper's contract (copies, null for a missing key, replacing, removing).
+// checks the wrapper's contract (copies, null for a missing key, replacing, removing), and
+// that a platform without a secure store keeps nothing until the app opts in.
 import <io>;
 import <mem>;
 import <string>;
@@ -9,6 +10,7 @@ import <securestore>;
 
 List<string> keys;
 List<string> values;
+bool secure_here = true;
 
 int find(string key) {
     for (i in 0..keys.size) { if (strcmp(keys.data[i], key) == 0) return i; }
@@ -31,7 +33,7 @@ int secure_native_remove(string key) {
     if (at >= 0) { free(keys.data[at]); free(values.data[at]); keys.remove(at); values.remove(at); }
     return 1;
 }
-int secure_native_is_secure() { return 1; }
+int secure_native_is_secure() { return secure_here ? 1 : 0; }
 
 void check(bool ok, string what) {
     if (!ok) { printf("FAIL %s\n", what); exit(1); }
@@ -54,6 +56,22 @@ int main() {
     check(secure_remove("session") && secure_get("session") == null, "removed");
     check(!secure_set(null, "x") && secure_get(null) == null && !secure_remove(null), "a null key is refused");
     check(secure_is_secure(), "secure");
+
+    // No secure store (the web): refused until the app opts in to the clear.
+    secure_here = false;
+    check(!secure_is_secure(), "not secure");
+    check(!secure_set("session", "abc"), "set refused without the opt-in");
+    check(keys.size == 1, "nothing written without the opt-in");
+    check(secure_native_set("old", "kept-in-the-clear") == 1, "a value an older version kept");
+    check(secure_get("old") == null, "get refused without the opt-in");
+    secure_allow_insecure(true);
+    check(secure_set("session", "abc"), "set with the opt-in");
+    got = secure_get("old");
+    check(got != null && strcmp(got, "kept-in-the-clear") == 0, "get with the opt-in");
+    free(got);
+    secure_allow_insecure(false);
+    check(secure_remove("old") && keys.size == 2, "remove without the opt-in");
+    check(secure_get("session") == null, "refused again");
     printf("PASS securestore\n");
     return 0;
 }
