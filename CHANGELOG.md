@@ -3,7 +3,11 @@
 All notable changes to this package are documented in this file. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.2.0] - 2026-11-26
+
+### Changed
+
+- Depends on ui 0.8.0.
 
 ### Added
 
@@ -18,7 +22,7 @@ All notable changes to this package are documented in this file. The format is b
   asking. `secure_remove` still clears them. The README says how to migrate.
 - The README says the package is in Preview and how it is tested.
 
-## [0.1.4] - 2026-11-21
+## [0.1.4]
 
 ### Added
 
